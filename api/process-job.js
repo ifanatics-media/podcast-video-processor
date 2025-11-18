@@ -54,7 +54,7 @@ Title: Viral Clip Subtitles
 ScriptType: v4.00+
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: DefaultV2,Roboto,40,&H00FFFFFF,&H00FFFF00,&H00000000,&H99000000,-1,0,0,0,100,100,0,0,1,2,1,2,10,10,50,1
+Style: DefaultV2,Roboto,28,&H00FFFFFF,&H00FFFF00,&H00000000,&H99000000,-1,0,0,0,100,100,0,0,1,2,1,2,10,10,50,1
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 ${events}`;
