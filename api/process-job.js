@@ -53,9 +53,6 @@ export default async function handler(request, response) {
     const artworkPath = path.join(tempDir, 'artwork.png');
     const subsPath = path.join(tempDir, 'subs.ass');
     const outputPath = path.join(tempDir, 'output.mp4');
-    
-    // CRITICAL FIX: The FFmpeg binary is now part of our project, not in /tmp.
-    // `process.cwd()` is the root of our deployed function.
     const ffmpegPath = path.join(process.cwd(), 'bin', 'ffmpeg');
 
     try {
@@ -70,16 +67,22 @@ export default async function handler(request, response) {
         await fs.writeFile(subsPath, createAssSubtitle(dialogue, audioDuration));
         console.log('Assets downloaded and prepared.');
 
-        // Tell fluent-ffmpeg where to find the binary that is now part of our project.
         ffmpeg.setFfmpegPath(ffmpegPath);
 
         console.log('Starting FFmpeg process...');
         await new Promise((resolve, reject) => {
             ffmpeg()
+                // DEFINITIVE FIX: Use -loop 1 to treat the static image as an infinite video stream.
                 .input(artworkPath)
+                .inputOptions(['-loop 1'])
+                // Then add the audio.
                 .input(audioPath)
+                // Now, when we use -shortest, it will stop when the AUDIO stream ends.
                 .videoFilter(`scale=720:1280:force_original_aspect_ratio=decrease,boxblur=30:5,setsar=1,subtitles=${subsPath}:force_style='Fontsize=48,Alignment=8,MarginV=100'`)
-                .outputOptions(['-c:v libx264', '-tune stillimage', '-c:a aac', '-b:a 192k', '-pix_fmt yuv420p', '-shortest', '-movflags +faststart'])
+                .outputOptions([
+                    '-c:v libx264', '-tune stillimage', '-c:a aac', '-b:a 192k',
+                    '-pix_fmt yuv420p', '-shortest', '-movflags +faststart'
+                ])
                 .on('end', () => { console.log('FFmpeg process finished.'); resolve(); })
                 .on('error', (err) => { console.error('FFmpeg error:', err); reject(new Error(`FFmpeg processing failed: ${err.message}`)); })
                 .save(outputPath);
