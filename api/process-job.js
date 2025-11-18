@@ -6,10 +6,14 @@ import { tmpdir } from 'os';
 
 // Helper to create the subtitle file content
 function createAssSubtitle(dialogue, audioDuration) {
-    const totalWords = dialogue.reduce((sum, seg) => sum + (seg.line.split(/\s+/).filter(Boolean).length || 0), 0);
+    // Combine all dialogue into a single array of words
+    const allWords = dialogue.flatMap(seg => seg.line.split(/\s+/).filter(Boolean));
+    const totalWords = allWords.length;
     const avgTimePerWord = totalWords > 0 ? audioDuration / totalWords : 0;
+    
     let currentTime = 0;
     let events = '';
+
     const formatTime = (seconds) => {
         if (isNaN(seconds) || seconds < 0) seconds = 0;
         const date = new Date(seconds * 1000);
@@ -19,29 +23,38 @@ function createAssSubtitle(dialogue, audioDuration) {
         const centiseconds = String(Math.floor(date.getUTCMilliseconds() / 10)).padStart(2, '0');
         return `${hours}:${minutes}:${secs}.${centiseconds}`;
     };
-    for (const segment of dialogue) {
+
+    // DEFINITIVE FIX: Re-architected subtitle generation.
+    // Instead of one giant text block, we create multiple, timed, single-line events.
+    const MAX_WORDS_PER_LINE = 7;
+    for (let i = 0; i < allWords.length; i += MAX_WORDS_PER_LINE) {
+        const lineWords = allWords.slice(i, i + MAX_WORDS_PER_LINE);
         let lineWithKaraokeTags = '';
-        const words = segment.line.split(/\s+/).filter(Boolean);
-        const segmentStartTime = currentTime;
-        for (const word of words) {
-            const wordDuration = avgTimePerWord;
+        const lineStartTime = currentTime;
+
+        for (const word of lineWords) {
+            const wordDuration = avgTimePerWord; // Use a consistent average for smoother timing
             const karaokeTag = `{\\k${Math.round(wordDuration * 100)}}`;
             lineWithKaraokeTags += `${karaokeTag}${word} `;
             currentTime += wordDuration;
         }
-        const segmentEndTime = currentTime;
-        events += `Dialogue: 0,${formatTime(segmentStartTime)},${formatTime(segmentEndTime)},DefaultV2,,0,0,0,,${lineWithKaraokeTags.trim()}\n`;
+
+        const lineEndTime = currentTime;
+        
+        // Create a separate, timed event for each small line of text.
+        events += `Dialogue: 0,${formatTime(lineStartTime)},${formatTime(lineEndTime)},DefaultV2,,0,0,0,,${lineWithKaraokeTags.trim()}\n`;
     }
+
     // REFINED: The style has been updated for better aesthetics.
-    // Fontsize is reduced from 48 to 40.
-    // Alignment is changed from 8 (Top Center) to 2 (Bottom Center) for lower-third placement.
-    // MarginV is changed from 100 to 50 to give a comfortable margin from the bottom.
+    // Fontsize is reduced to 40.
+    // Alignment is changed to 2 (Bottom Center) for lower-third placement.
+    // MarginV is changed to 50 for a comfortable margin from the bottom.
     return `[Script Info]
 Title: Viral Clip Subtitles
 ScriptType: v4.00+
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: DefaultV2,Roboto,40,&H00FFFFFF,&H0000FFFF,&H00000000,&H99000000,-1,0,0,0,100,100,0,0,1,2,1,2,10,10,50,1
+Style: DefaultV2,Roboto,40,&H00FFFFFF,&H00FFFF00,&H00000000,&H99000000,-1,0,0,0,100,100,0,0,1,2,1,2,10,10,50,1
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 ${events}`;
@@ -88,8 +101,7 @@ export default async function handler(request, response) {
                 .input(artworkPath)
                 .inputOptions(['-loop 1'])
                 .input(audioPath)
-                // REMOVED: The conflicting ':force_style' parameter has been removed.
-                // The styling and timing from the .ass file will now be used correctly.
+                // The styling is now entirely controlled by the .ass file.
                 .videoFilter(`scale=720:1280:force_original_aspect_ratio=decrease,boxblur=10:1,setsar=1,subtitles=${subsPath}:fontsdir=${fontsDir}`)
                 .outputOptions([
                     '-c:v libx264', '-tune stillimage', '-c:a aac', '-b:a 192k',
