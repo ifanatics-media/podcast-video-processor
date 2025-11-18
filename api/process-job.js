@@ -53,9 +53,10 @@ export default async function handler(request, response) {
     const artworkPath = path.join(tempDir, 'artwork.png');
     const subsPath = path.join(tempDir, 'subs.ass');
     const outputPath = path.join(tempDir, 'output.mp4');
-    const ffmpegDir = path.join(tempDir, 'ffmpeg');
-    process.env.PATH = `${process.env.PATH}:${ffmpegDir}`;
-    ffmpeg.setFfmpegPath(path.join(ffmpegDir, 'ffmpeg'));
+    
+    // CRITICAL FIX: The FFmpeg binary is now part of our project, not in /tmp.
+    // `process.cwd()` is the root of our deployed function.
+    const ffmpegPath = path.join(process.cwd(), 'bin', 'ffmpeg');
 
     try {
         await supabaseAdmin.from('video_jobs').update({ status: 'processing' }).eq('id', job.id);
@@ -68,6 +69,9 @@ export default async function handler(request, response) {
         await fs.writeFile(artworkPath, Buffer.from(await artworkRes.arrayBuffer()));
         await fs.writeFile(subsPath, createAssSubtitle(dialogue, audioDuration));
         console.log('Assets downloaded and prepared.');
+
+        // Tell fluent-ffmpeg where to find the binary that is now part of our project.
+        ffmpeg.setFfmpegPath(ffmpegPath);
 
         console.log('Starting FFmpeg process...');
         await new Promise((resolve, reject) => {
