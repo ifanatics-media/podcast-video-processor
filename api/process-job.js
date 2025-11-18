@@ -32,13 +32,16 @@ function createAssSubtitle(dialogue, audioDuration) {
         const segmentEndTime = currentTime;
         events += `Dialogue: 0,${formatTime(segmentStartTime)},${formatTime(segmentEndTime)},DefaultV2,,0,0,0,,${lineWithKaraokeTags.trim()}\n`;
     }
-    // NEW: Updated the Style to use "Roboto" font, which we are now including.
+    // REFINED: The style has been updated for better aesthetics.
+    // Fontsize is reduced from 48 to 40.
+    // Alignment is changed from 8 (Top Center) to 2 (Bottom Center) for lower-third placement.
+    // MarginV is changed from 100 to 50 to give a comfortable margin from the bottom.
     return `[Script Info]
 Title: Viral Clip Subtitles
 ScriptType: v4.00+
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: DefaultV2,Roboto,48,&H00FFFFFF,&H0000FFFF,&H00000000,&H99000000,-1,0,0,0,100,100,0,0,1,2,1,8,10,10,100,1
+Style: DefaultV2,Roboto,40,&H00FFFFFF,&H0000FFFF,&H00000000,&H99000000,-1,0,0,0,100,100,0,0,1,2,1,2,10,10,50,1
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 ${events}`;
@@ -63,8 +66,6 @@ export default async function handler(request, response) {
     const subsPath = path.join(tempDir, 'subs.ass');
     const outputPath = path.join(tempDir, 'output.mp4');
     const ffmpegPath = path.join(process.cwd(), 'bin', 'ffmpeg');
-    
-    // NEW: Define the path to our bundled fonts directory.
     const fontsDir = path.join(process.cwd(), 'bin', 'fonts');
 
     try {
@@ -87,9 +88,9 @@ export default async function handler(request, response) {
                 .input(artworkPath)
                 .inputOptions(['-loop 1'])
                 .input(audioPath)
-                // ADJUSTED: Reduced blur from '30:5' to '10:1' for a more subtle effect.
-                // NEW: Added 'fontsdir=${fontsDir}' to tell FFmpeg where to find the font file.
-                .videoFilter(`scale=720:1280:force_original_aspect_ratio=decrease,boxblur=10:1,setsar=1,subtitles=${subsPath}:fontsdir=${fontsDir}:force_style='Fontsize=48,Alignment=8,MarginV=100'`)
+                // REMOVED: The conflicting ':force_style' parameter has been removed.
+                // The styling and timing from the .ass file will now be used correctly.
+                .videoFilter(`scale=720:1280:force_original_aspect_ratio=decrease,boxblur=10:1,setsar=1,subtitles=${subsPath}:fontsdir=${fontsDir}`)
                 .outputOptions([
                     '-c:v libx264', '-tune stillimage', '-c:a aac', '-b:a 192k',
                     '-pix_fmt yuv420p', '-shortest', '-movflags +faststart'
