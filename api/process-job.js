@@ -2,11 +2,10 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { FFmpeg } from '@ffmpeg/ffmpeg';
-import { fetchFile } from '@ffmpeg/util';
+import { fetchFile, toBlobURL } from '@ffmpeg/util';
 
 // Helper to create the subtitle file content
 function createAssSubtitle(dialogue, audioDuration) {
-  // [This function is identical to the one in your old Supabase function, so it's omitted for brevity here, but included in the final code]
   const totalWords = dialogue.reduce((sum, seg) => sum + seg.line.split(/\s+/).filter(Boolean).length, 0);
   const avgTimePerWord = totalWords > 0 ? audioDuration / totalWords : 0;
   let currentTime = 0;
@@ -33,10 +32,18 @@ function createAssSubtitle(dialogue, audioDuration) {
       const segmentEndTime = currentTime;
       events += `Dialogue: 0,${formatTime(segmentStartTime)},${formatTime(segmentEndTime)},DefaultV2,,0,0,0,,${lineWithKaraokeTags.trim()}\n`;
   }
-  return `[Script Info]\nTitle: Viral Clip Subtitles\nScriptType: v4.00+\n[V4+ Styles]\nStyle: DefaultV2,Arial,48,&H00FFFFFF,&H0000FFFF,&H00000000,&H99000000,-1,0,0,0,100,100,0,0,1,2,1,8,10,10,100,1\n[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n${events}`;
+  return `[Script Info]
+Title: Viral Clip Subtitles
+ScriptType: v4.00+
+[V4+ Styles]
+Style: DefaultV2,Arial,48,&H00FFFFFF,&H0000FFFF,&H00000000,&H99000000,-1,0,0,0,100,100,0,0,1,2,1,8,10,10,100,1
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+${events}`;
 }
 
 export default async function handler(request, response) {
+  // Vercel automatically parses the body for POST requests
   const { record: job } = request.body;
   if (!job) {
     return response.status(400).json({ error: 'Invalid payload from Supabase webhook.' });
@@ -58,7 +65,10 @@ export default async function handler(request, response) {
 
     // 2. Load FFmpeg and files
     const ffmpeg = new FFmpeg();
-    await ffmpeg.load({ coreURL: '/@ffmpeg/core/dist/esm/ffmpeg-core.js' });
+    const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
+    const coreURL = await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript');
+    const wasmURL = await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm');
+    await ffmpeg.load({ coreURL, wasmURL });
 
     const [audioData, artworkData] = await Promise.all([
       fetchFile(audioUrl),

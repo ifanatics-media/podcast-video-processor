@@ -2,6 +2,7 @@
     "name": "podcast-video-processor",
     "version": "1.0.0",
     "private": true,
+    "type": "module",
     "dependencies": {
       "@ffmpeg/ffmpeg": "^0.12.10",
       "@ffmpeg/util": "^0.12.1",
