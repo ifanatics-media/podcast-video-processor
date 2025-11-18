@@ -32,7 +32,16 @@ function createAssSubtitle(dialogue, audioDuration) {
         const segmentEndTime = currentTime;
         events += `Dialogue: 0,${formatTime(segmentStartTime)},${formatTime(segmentEndTime)},DefaultV2,,0,0,0,,${lineWithKaraokeTags.trim()}\n`;
     }
-    return `[Script Info]\nTitle: Viral Clip Subtitles\nScriptType: v4.00+\n[V4+ Styles]\nStyle: DefaultV2,Arial,48,&H00FFFFFF,&H0000FFFF,&H00000000,&H99000000,-1,0,0,0,100,100,0,0,1,2,1,8,10,10,100,1\n[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n${events}`;
+    // NEW: Updated the Style to use "Roboto" font, which we are now including.
+    return `[Script Info]
+Title: Viral Clip Subtitles
+ScriptType: v4.00+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: DefaultV2,Roboto,48,&H00FFFFFF,&H0000FFFF,&H00000000,&H99000000,-1,0,0,0,100,100,0,0,1,2,1,8,10,10,100,1
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+${events}`;
 }
 
 export default async function handler(request, response) {
@@ -54,6 +63,9 @@ export default async function handler(request, response) {
     const subsPath = path.join(tempDir, 'subs.ass');
     const outputPath = path.join(tempDir, 'output.mp4');
     const ffmpegPath = path.join(process.cwd(), 'bin', 'ffmpeg');
+    
+    // NEW: Define the path to our bundled fonts directory.
+    const fontsDir = path.join(process.cwd(), 'bin', 'fonts');
 
     try {
         await supabaseAdmin.from('video_jobs').update({ status: 'processing' }).eq('id', job.id);
@@ -72,13 +84,12 @@ export default async function handler(request, response) {
         console.log('Starting FFmpeg process...');
         await new Promise((resolve, reject) => {
             ffmpeg()
-                // DEFINITIVE FIX: Use -loop 1 to treat the static image as an infinite video stream.
                 .input(artworkPath)
                 .inputOptions(['-loop 1'])
-                // Then add the audio.
                 .input(audioPath)
-                // Now, when we use -shortest, it will stop when the AUDIO stream ends.
-                .videoFilter(`scale=720:1280:force_original_aspect_ratio=decrease,boxblur=30:5,setsar=1,subtitles=${subsPath}:force_style='Fontsize=48,Alignment=8,MarginV=100'`)
+                // ADJUSTED: Reduced blur from '30:5' to '10:1' for a more subtle effect.
+                // NEW: Added 'fontsdir=${fontsDir}' to tell FFmpeg where to find the font file.
+                .videoFilter(`scale=720:1280:force_original_aspect_ratio=decrease,boxblur=10:1,setsar=1,subtitles=${subsPath}:fontsdir=${fontsDir}:force_style='Fontsize=48,Alignment=8,MarginV=100'`)
                 .outputOptions([
                     '-c:v libx264', '-tune stillimage', '-c:a aac', '-b:a 192k',
                     '-pix_fmt yuv420p', '-shortest', '-movflags +faststart'
